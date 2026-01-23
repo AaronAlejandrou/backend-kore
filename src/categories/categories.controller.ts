@@ -14,42 +14,43 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { GetUserId } from '../auth/get-user.decorator';
 
 @ApiTags('categories')
 @Controller('categories')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private readonly categoriesService: CategoriesService) { }
 
   @Post()
   @ApiOperation({ summary: 'Crear nueva categoría' })
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(createCategoryDto);
+  create(@Body() createCategoryDto: CreateCategoryDto, @GetUserId() userId: number) {
+    return this.categoriesService.create(createCategoryDto, userId);
   }
 
   @Get()
   @ApiQuery({ name: 'estado', required: false, enum: ['Activa', 'Inactiva'] })
   @ApiOperation({ summary: 'Obtener todas las categorías' })
-  findAll(@Query('estado') estado?: 'Activa' | 'Inactiva') {
-    return this.categoriesService.findAll(estado);
+  findAll(@GetUserId() userId: number, @Query('estado') estado?: 'Activa' | 'Inactiva') {
+    return this.categoriesService.findAll(userId, estado);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener categoría por ID' })
-  findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(+id);
+  findOne(@Param('id') id: string, @GetUserId() userId: number) {
+    return this.categoriesService.findOne(+id, userId);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar categoría' })
-  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
-    return this.categoriesService.update(+id, updateCategoryDto);
+  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto, @GetUserId() userId: number) {
+    return this.categoriesService.update(+id, updateCategoryDto, userId);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Eliminar categoría' })
-  remove(@Param('id') id: string) {
-    return this.categoriesService.remove(+id);
+  remove(@Param('id') id: string, @GetUserId() userId: number) {
+    return this.categoriesService.remove(+id, userId);
   }
 }
