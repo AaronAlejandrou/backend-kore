@@ -16,64 +16,75 @@ export class DashboardService {
     private customerRepository: Repository<Customer>,
   ) {}
 
-  async getStats(branchId?: number | 'all') {
-    const salesQuery = this.saleRepository.createQueryBuilder('sale');
-    const inventoryQuery = this.inventoryRepository.createQueryBuilder('item');
-    const customersQuery = this.customerRepository.createQueryBuilder('customer');
+  async getStats(userId: number, branchId?: number | 'all') {
+    const salesQuery = this.saleRepository
+      .createQueryBuilder('sale')
+      .where('sale.userId = :userId', { userId });
+
+    const inventoryQuery = this.inventoryRepository
+      .createQueryBuilder('item')
+      .where('item.userId = :userId', { userId });
+
+    const customersQuery = this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.userId = :userId', { userId });
 
     if (branchId && branchId !== 'all') {
-      salesQuery.where('sale.sucursalId = :branchId', { branchId });
-      inventoryQuery.where('item.sucursalId = :branchId', { branchId });
+      salesQuery.andWhere('sale.sucursalId = :branchId', { branchId });
+      inventoryQuery.andWhere('item.sucursalId = :branchId', { branchId });
     }
 
-    // Total Revenue
     const totalRevenueResult = await salesQuery
+      .clone()
       .select('SUM(sale.total)', 'total')
       .getRawOne();
     const totalRevenue = parseFloat(totalRevenueResult?.total || '0');
 
-    // Total Sales
-    const totalSales = await salesQuery.getCount();
+    const totalSales = await salesQuery.clone().getCount();
 
-    // Today Sales
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const todaySalesQuery = this.saleRepository.createQueryBuilder('sale');
+    const todaySalesQuery = this.saleRepository
+      .createQueryBuilder('sale')
+      .where('sale.userId = :userId', { userId })
+      .andWhere('sale.fecha >= :today', { today })
+      .andWhere('sale.fecha < :tomorrow', { tomorrow });
+
     if (branchId && branchId !== 'all') {
-      todaySalesQuery.where('sale.sucursalId = :branchId', { branchId });
+      todaySalesQuery.andWhere('sale.sucursalId = :branchId', { branchId });
     }
-    const todaySales = await todaySalesQuery
-      .where('sale.fecha >= :today', { today })
-      .andWhere('sale.fecha < :tomorrow', { tomorrow })
-      .getCount();
 
-    // Total Products
-    const totalProducts = await inventoryQuery.getCount();
+    const todaySales = await todaySalesQuery.getCount();
 
-    // Total Customers
-    const totalCustomers = await customersQuery.getCount();
+    const totalProducts = await inventoryQuery.clone().getCount();
 
-    // Low Stock Items
-    const lowStockQuery = this.inventoryRepository.createQueryBuilder('item');
+    const totalCustomers = await customersQuery.clone().getCount();
+
+    const lowStockQuery = this.inventoryRepository
+      .createQueryBuilder('item')
+      .where('item.userId = :userId', { userId })
+      .andWhere('item.stock <= item.stockMinimo');
+
     if (branchId && branchId !== 'all') {
-      lowStockQuery.where('item.sucursalId = :branchId', { branchId });
+      lowStockQuery.andWhere('item.sucursalId = :branchId', { branchId });
     }
-    const lowStockItems = await lowStockQuery
-      .where('item.stock <= item.stockMinimo')
-      .getCount();
 
-    // Recent Sales (last 5)
+    const lowStockItems = await lowStockQuery.getCount();
+
     const recentSalesQuery = this.saleRepository
       .createQueryBuilder('sale')
       .leftJoinAndSelect('sale.items', 'items')
+      .where('sale.userId = :userId', { userId })
       .orderBy('sale.fecha', 'DESC')
       .take(5);
+
     if (branchId && branchId !== 'all') {
-      recentSalesQuery.where('sale.sucursalId = :branchId', { branchId });
+      recentSalesQuery.andWhere('sale.sucursalId = :branchId', { branchId });
     }
+
     const recentSales = await recentSalesQuery.getMany();
 
     return {
@@ -87,20 +98,22 @@ export class DashboardService {
     };
   }
 
-  async getSalesByDay(branchId?: number | 'all', days: number = 14) {
-    const salesQuery = this.saleRepository.createQueryBuilder('sale');
+  async getSalesByDay(userId: number, branchId?: number | 'all', days: number = 14) {
+    const salesQuery = this.saleRepository
+      .createQueryBuilder('sale')
+      .where('sale.userId = :userId', { userId });
+
     if (branchId && branchId !== 'all') {
-      salesQuery.where('sale.sucursalId = :branchId', { branchId });
+      salesQuery.andWhere('sale.sucursalId = :branchId', { branchId });
     }
 
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
     const sales = await salesQuery
-      .where('sale.fecha >= :startDate', { startDate })
+      .andWhere('sale.fecha >= :startDate', { startDate })
       .getMany();
 
-    // Agrupar por día
     const salesByDay: { fecha: string; ventas: number; ingresos: number }[] = [];
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
@@ -129,12 +142,14 @@ export class DashboardService {
     return salesByDay;
   }
 
-  async getTopProducts(branchId?: number | 'all', limit: number = 5) {
+  async getTopProducts(userId: number, branchId?: number | 'all', limit: number = 5) {
     const salesQuery = this.saleRepository
       .createQueryBuilder('sale')
-      .leftJoinAndSelect('sale.items', 'items');
+      .leftJoinAndSelect('sale.items', 'items')
+      .where('sale.userId = :userId', { userId });
+
     if (branchId && branchId !== 'all') {
-      salesQuery.where('sale.sucursalId = :branchId', { branchId });
+      salesQuery.andWhere('sale.sucursalId = :branchId', { branchId });
     }
 
     const sales = await salesQuery.getMany();
@@ -162,12 +177,14 @@ export class DashboardService {
       .slice(0, limit);
   }
 
-  async getTopCategories(branchId?: number | 'all', limit: number = 5) {
+  async getTopCategories(userId: number, branchId?: number | 'all', limit: number = 5) {
     const inventoryQuery = this.inventoryRepository
       .createQueryBuilder('item')
-      .leftJoinAndSelect('item.categoria', 'categoria');
+      .leftJoinAndSelect('item.categoria', 'categoria')
+      .where('item.userId = :userId', { userId });
+
     if (branchId && branchId !== 'all') {
-      inventoryQuery.where('item.sucursalId = :branchId', { branchId });
+      inventoryQuery.andWhere('item.sucursalId = :branchId', { branchId });
     }
 
     const items = await inventoryQuery.getMany();
