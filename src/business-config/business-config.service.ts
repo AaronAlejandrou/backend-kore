@@ -9,15 +9,16 @@ export class BusinessConfigService {
   constructor(
     @InjectRepository(BusinessConfig)
     private businessConfigRepository: Repository<BusinessConfig>,
-  ) {}
+  ) { }
 
-  async getConfig(): Promise<BusinessConfig> {
+  async getConfig(userId: number): Promise<BusinessConfig> {
     let config = await this.businessConfigRepository.findOne({
-      where: { id: 1 },
+      where: { userId },
     });
 
     if (!config) {
       config = this.businessConfigRepository.create({
+        userId,
         nombreSistema: 'KORE',
       });
       config = await this.businessConfigRepository.save(config);
@@ -26,13 +27,16 @@ export class BusinessConfigService {
     return config;
   }
 
-  async updateConfig(updateDto: UpdateBusinessConfigDto): Promise<BusinessConfig> {
+  async updateConfig(userId: number, updateDto: UpdateBusinessConfigDto): Promise<BusinessConfig> {
     let config = await this.businessConfigRepository.findOne({
-      where: { id: 1 },
+      where: { userId },
     });
 
     if (!config) {
-      config = this.businessConfigRepository.create(updateDto);
+      config = this.businessConfigRepository.create({
+        ...updateDto,
+        userId,
+      });
     } else {
       Object.assign(config, updateDto);
     }
