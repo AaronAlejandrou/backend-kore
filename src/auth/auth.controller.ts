@@ -35,4 +35,13 @@ export class AuthController {
   async getProfile(@Request() req) {
     return req.user;
   }
+
+  @Post('complete-onboarding')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Marcar onboarding como completado' })
+  @ApiResponse({ status: 200, description: 'Onboarding completado' })
+  async completeOnboarding(@Request() req) {
+    return this.authService.completeOnboarding(req.user.id);
+  }
 }

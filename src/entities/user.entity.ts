@@ -23,6 +23,9 @@ export class User {
   @Column({ type: 'varchar', length: 50, default: 'admin' })
   role: string;
 
+  @Column({ type: 'boolean', default: false })
+  onboardingCompleted: boolean;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

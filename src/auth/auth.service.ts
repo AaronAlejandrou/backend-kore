@@ -88,4 +88,15 @@ export class AuthService {
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
   }
+
+  async completeOnboarding(userId: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    user.onboardingCompleted = true;
+    await this.userRepository.save(user);
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
 }
