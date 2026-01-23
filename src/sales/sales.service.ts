@@ -31,7 +31,7 @@ export class SalesService {
     private inventoryService: InventoryService,
     private customersService: CustomersService,
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(createSaleDto: CreateSaleDto, userId: number): Promise<Sale> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -43,7 +43,7 @@ export class SalesService {
       let branch: Branch | null = null;
       if (createSaleDto.sucursalId) {
         branch = await queryRunner.manager.findOne(Branch, {
-          where: { id: createSaleDto.sucursalId },
+          where: { id: createSaleDto.sucursalId, userId },
         });
         if (!branch) {
           throw new NotFoundException('Sucursal no encontrada');
@@ -56,7 +56,7 @@ export class SalesService {
       let customer: Customer | null = null;
       if (createSaleDto.clienteId) {
         customer = await queryRunner.manager.findOne(Customer, {
-          where: { id: createSaleDto.clienteId },
+          where: { id: createSaleDto.clienteId, userId },
         });
       }
 
@@ -67,7 +67,7 @@ export class SalesService {
 
       for (const itemDto of createSaleDto.items) {
         const product = await queryRunner.manager.findOne(InventoryItem, {
-          where: { id: itemDto.productId },
+          where: { id: itemDto.productId, userId },
         });
 
         if (!product) {
@@ -135,6 +135,7 @@ export class SalesService {
 
       // Crear venta
       const sale = new Sale();
+      sale.userId = userId;
       sale.numeroVenta = numeroVenta;
       sale.fecha = new Date();
       sale.clienteId = customer?.id || null;
@@ -191,7 +192,7 @@ export class SalesService {
       await queryRunner.commitTransaction();
 
       // Obtener la venta completa con relaciones
-      return this.findOne(savedSale.id);
+      return this.findOne(savedSale.id, userId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -200,24 +201,25 @@ export class SalesService {
     }
   }
 
-  async findAll(branchId?: number | 'all'): Promise<Sale[]> {
+  async findAll(userId: number, branchId?: number | 'all'): Promise<Sale[]> {
     const queryBuilder = this.saleRepository
       .createQueryBuilder('sale')
       .leftJoinAndSelect('sale.items', 'items')
       .leftJoinAndSelect('sale.cliente', 'cliente')
       .leftJoinAndSelect('sale.sucursal', 'sucursal')
+      .where('sale.userId = :userId', { userId })
       .orderBy('sale.fecha', 'DESC');
 
     if (branchId && branchId !== 'all') {
-      queryBuilder.where('sale.sucursalId = :branchId', { branchId });
+      queryBuilder.andWhere('sale.sucursalId = :branchId', { branchId });
     }
 
     return queryBuilder.getMany();
   }
 
-  async findOne(id: number): Promise<Sale> {
+  async findOne(id: number, userId: number): Promise<Sale> {
     const sale = await this.saleRepository.findOne({
-      where: { id },
+      where: { id, userId },
       relations: ['items', 'items.product', 'cliente', 'sucursal'],
     });
     if (!sale) {
@@ -226,22 +228,21 @@ export class SalesService {
     return sale;
   }
 
-  async update(id: number, updateSaleDto: UpdateSaleDto): Promise<Sale> {
-    const sale = await this.findOne(id);
+  async update(id: number, updateSaleDto: UpdateSaleDto, userId: number): Promise<Sale> {
+    const sale = await this.findOne(id, userId);
     Object.assign(sale, updateSaleDto);
     return this.saleRepository.save(sale);
   }
 
-  async remove(id: number): Promise<void> {
-    const sale = await this.findOne(id);
+  async remove(id: number, userId: number): Promise<void> {
+    const sale = await this.findOne(id, userId);
     await this.saleRepository.remove(sale);
   }
 
   private async generateSaleNumber(userId: number): Promise<string> {
-    const allSales = await this.saleRepository.find();
-    const userSales = allSales.filter((s) =>
-      s.numeroVenta.startsWith(`${userId}`),
-    );
+    const userSales = await this.saleRepository.find({
+      where: { userId },
+    });
     const saleNumber = userSales.length + 1;
     const now = new Date();
     const timestamp = `${String(now.getMonth() + 1).padStart(2, '0')}${String(

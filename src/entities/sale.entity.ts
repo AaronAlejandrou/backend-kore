@@ -7,17 +7,27 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
+import { User } from './user.entity';
 import { Customer } from './customer.entity';
 import { Branch } from './branch.entity';
 import { SaleItem } from './sale-item.entity';
 
 @Entity('sales')
+@Index(['userId', 'numeroVenta'], { unique: true })
 export class Sale {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'int' })
+  userId: number;
+
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column({ type: 'varchar', length: 255 })
   numeroVenta: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
