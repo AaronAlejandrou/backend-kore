@@ -10,40 +10,50 @@ export class InventoryService {
   constructor(
     @InjectRepository(InventoryItem)
     private inventoryRepository: Repository<InventoryItem>,
-  ) {}
+  ) { }
 
-  async create(createInventoryItemDto: CreateInventoryItemDto): Promise<InventoryItem> {
-    // Verificar si el SKU ya existe
+  /**
+   * Parsea una fecha string (YYYY-MM-DD) a Date sin conversión de zona horaria
+   */
+  private parseLocalDate(dateString: string): Date {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  async create(createInventoryItemDto: CreateInventoryItemDto, userId: number): Promise<InventoryItem> {
+    // Verificar si el SKU ya existe para este usuario
     if (createInventoryItemDto.sku) {
       const existing = await this.inventoryRepository.findOne({
-        where: { sku: createInventoryItemDto.sku },
+        where: { sku: createInventoryItemDto.sku, userId },
       });
       if (existing) {
         throw new BadRequestException('El SKU ya está en uso');
       }
     } else {
       // Generar SKU automático si no se proporciona
-      createInventoryItemDto.sku = await this.generateSku();
+      createInventoryItemDto.sku = await this.generateSku(userId);
     }
 
     const item = this.inventoryRepository.create({
       ...createInventoryItemDto,
+      userId,
       fechaIngreso: createInventoryItemDto.fechaIngreso
-        ? new Date(createInventoryItemDto.fechaIngreso)
+        ? this.parseLocalDate(createInventoryItemDto.fechaIngreso)
         : new Date(),
     });
     return this.inventoryRepository.save(item);
   }
 
-  async findAll(branchId?: number | 'all', search?: string): Promise<InventoryItem[]> {
+  async findAll(userId: number, branchId?: number | 'all', search?: string): Promise<InventoryItem[]> {
     const queryBuilder = this.inventoryRepository
       .createQueryBuilder('item')
       .leftJoinAndSelect('item.categoria', 'categoria')
       .leftJoinAndSelect('item.proveedor', 'proveedor')
-      .leftJoinAndSelect('item.sucursal', 'sucursal');
+      .leftJoinAndSelect('item.sucursal', 'sucursal')
+      .where('item.userId = :userId', { userId });
 
     if (branchId && branchId !== 'all') {
-      queryBuilder.where('item.sucursalId = :branchId', { branchId });
+      queryBuilder.andWhere('item.sucursalId = :branchId', { branchId });
     }
 
     if (search) {
@@ -56,9 +66,9 @@ export class InventoryService {
     return queryBuilder.getMany();
   }
 
-  async findOne(id: number): Promise<InventoryItem> {
+  async findOne(id: number, userId: number): Promise<InventoryItem> {
     const item = await this.inventoryRepository.findOne({
-      where: { id },
+      where: { id, userId },
       relations: ['categoria', 'proveedor', 'sucursal'],
     });
     if (!item) {
@@ -67,12 +77,12 @@ export class InventoryService {
     return item;
   }
 
-  async update(id: number, updateInventoryItemDto: UpdateInventoryItemDto): Promise<InventoryItem> {
-    const item = await this.findOne(id);
+  async update(id: number, updateInventoryItemDto: UpdateInventoryItemDto, userId: number): Promise<InventoryItem> {
+    const item = await this.findOne(id, userId);
 
     if (updateInventoryItemDto.sku && updateInventoryItemDto.sku !== item.sku) {
       const existing = await this.inventoryRepository.findOne({
-        where: { sku: updateInventoryItemDto.sku },
+        where: { sku: updateInventoryItemDto.sku, userId },
       });
       if (existing) {
         throw new BadRequestException('El SKU ya está en uso');
@@ -81,18 +91,18 @@ export class InventoryService {
 
     Object.assign(item, updateInventoryItemDto);
     if (updateInventoryItemDto.fechaIngreso) {
-      item.fechaIngreso = new Date(updateInventoryItemDto.fechaIngreso);
+      item.fechaIngreso = this.parseLocalDate(updateInventoryItemDto.fechaIngreso);
     }
     return this.inventoryRepository.save(item);
   }
 
-  async remove(id: number): Promise<void> {
-    const item = await this.findOne(id);
+  async remove(id: number, userId: number): Promise<void> {
+    const item = await this.findOne(id, userId);
     await this.inventoryRepository.remove(item);
   }
 
-  async updateStock(productId: number, quantity: number): Promise<InventoryItem> {
-    const item = await this.findOne(productId);
+  async updateStock(productId: number, quantity: number, userId: number): Promise<InventoryItem> {
+    const item = await this.findOne(productId, userId);
     const newStock = item.stock + quantity;
 
     if (newStock < 0) {
@@ -113,10 +123,10 @@ export class InventoryService {
     return this.inventoryRepository.save(item);
   }
 
-  async getLowStockItems(branchId?: number | 'all'): Promise<InventoryItem[]> {
+  async getLowStockItems(userId: number, branchId?: number | 'all'): Promise<InventoryItem[]> {
     const queryBuilder = this.inventoryRepository
       .createQueryBuilder('item')
-      .where('item.stock <= item.stockMinimo');
+      .where('item.userId = :userId AND item.stock <= item.stockMinimo', { userId });
 
     if (branchId && branchId !== 'all') {
       queryBuilder.andWhere('item.sucursalId = :branchId', { branchId });
@@ -125,7 +135,7 @@ export class InventoryService {
     return queryBuilder.getMany();
   }
 
-  private async generateSku(): Promise<string> {
+  private async generateSku(userId: number): Promise<string> {
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -133,10 +143,10 @@ export class InventoryService {
     const minute = String(now.getMinutes()).padStart(2, '0');
     const baseSku = `Q${day}${month}${hour}${minute}`;
 
-    // Verificar si existe, si existe agregar número
+    // Verificar si existe para este usuario, si existe agregar número
     let sku = baseSku;
     let counter = 1;
-    while (await this.inventoryRepository.findOne({ where: { sku } })) {
+    while (await this.inventoryRepository.findOne({ where: { sku, userId } })) {
       sku = `${baseSku}${counter}`;
       counter++;
     }

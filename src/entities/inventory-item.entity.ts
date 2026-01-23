@@ -6,17 +6,27 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
+import { User } from './user.entity';
 import { Category } from './category.entity';
 import { Supplier } from './supplier.entity';
 import { Branch } from './branch.entity';
 
 @Entity('inventory_items')
+@Index(['userId', 'sku'], { unique: true })
 export class InventoryItem {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'int' })
+  userId: number;
+
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column({ type: 'varchar', length: 255 })
   sku: string;
 
   @Column({ type: 'varchar', length: 255 })
