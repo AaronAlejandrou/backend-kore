@@ -2,14 +2,24 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { User } from './user.entity';
 
 @Entity('branches')
 export class Branch {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'int' })
+  userId: number;
+
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column({ type: 'varchar', length: 255 })
   nombre: string;
