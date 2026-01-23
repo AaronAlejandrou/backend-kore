@@ -2,14 +2,26 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
+import { User } from './user.entity';
 
 @Entity('customers')
+@Index(['userId', 'numeroDocumento'], { unique: true })
 export class Customer {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ type: 'int' })
+  userId: number;
+
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column({ type: 'varchar', length: 255 })
   nombre: string;
@@ -20,7 +32,7 @@ export class Customer {
   })
   tipoDocumento: 'DNI' | 'RUC' | 'Pasaporte' | 'CE';
 
-  @Column({ type: 'varchar', length: 255, unique: true })
+  @Column({ type: 'varchar', length: 255 })
   numeroDocumento: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
