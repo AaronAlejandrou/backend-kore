@@ -65,6 +65,11 @@ export class SalesService {
       let subtotalItemsOriginal = 0;
       let subtotalItemsFinal = 0;
 
+      // Procesar items de la venta
+      // NOTA: Se permite vender productos de cualquier sucursal.
+      // La sucursalId de la venta indica DONDE se registra la venta, no de donde provienen los productos.
+      // El stock se descuenta de cada producto según su sucursal de origen.
+
       for (const itemDto of createSaleDto.items) {
         const product = await queryRunner.manager.findOne(InventoryItem, {
           where: { id: itemDto.productId, userId },
@@ -116,6 +121,7 @@ export class SalesService {
 
         items.push(saleItem);
       }
+
 
       // Calcular descuento total
       const descuentoItems = subtotalItemsOriginal - subtotalItemsFinal;
