@@ -78,7 +78,14 @@ export class InventoryService {
   }
 
   async update(id: number, updateInventoryItemDto: UpdateInventoryItemDto, userId: number): Promise<InventoryItem> {
-    const item = await this.findOne(id, userId);
+    // Buscar el item SIN cargar relaciones para evitar conflictos
+    const item = await this.inventoryRepository.findOne({
+      where: { id, userId },
+    });
+    
+    if (!item) {
+      throw new NotFoundException(`Producto con ID ${id} no encontrado`);
+    }
 
     if (updateInventoryItemDto.sku && updateInventoryItemDto.sku !== item.sku) {
       const existing = await this.inventoryRepository.findOne({
@@ -89,11 +96,16 @@ export class InventoryService {
       }
     }
 
+    // Asignar los nuevos valores
     Object.assign(item, updateInventoryItemDto);
+    
     if (updateInventoryItemDto.fechaIngreso) {
       item.fechaIngreso = this.parseLocalDate(updateInventoryItemDto.fechaIngreso);
     }
-    return this.inventoryRepository.save(item);
+    
+    // Guardar y luego retornar con relaciones cargadas
+    await this.inventoryRepository.save(item);
+    return this.findOne(id, userId);
   }
 
   async remove(id: number, userId: number): Promise<void> {
