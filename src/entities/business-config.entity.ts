@@ -45,6 +45,9 @@ export class BusinessConfig {
   @Column({ type: 'varchar', length: 255, nullable: true })
   sitioWeb: string;
 
+  @Column({ type: 'int', nullable: true })
+  sucursalCentral: number;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

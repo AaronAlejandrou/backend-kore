@@ -99,4 +99,41 @@ export class AuthService {
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
+
+  async checkAndCompleteOnboarding(userId: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.onboardingCompleted) {
+      return { completed: user?.onboardingCompleted ?? false, updated: false };
+    }
+
+    // Verificar si tiene los requisitos mínimos completados
+    const dataSource = this.userRepository.manager.connection;
+    
+    const [branchCount] = await dataSource.query(
+      'SELECT COUNT(*) as count FROM branches WHERE "userId" = $1',
+      [userId]
+    );
+    const [categoryCount] = await dataSource.query(
+      'SELECT COUNT(*) as count FROM categories WHERE "userId" = $1',
+      [userId]
+    );
+    const [configCount] = await dataSource.query(
+      'SELECT COUNT(*) as count FROM business_config WHERE "userId" = $1',
+      [userId]
+    );
+
+    const hasBranches = parseInt(branchCount.count) > 0;
+    const hasCategories = parseInt(categoryCount.count) > 0;
+    const hasConfig = parseInt(configCount.count) > 0;
+
+    // Si tiene al menos 1 sucursal, 1 categoría y config, marcar como completado
+    if (hasBranches && hasCategories && hasConfig) {
+      user.onboardingCompleted = true;
+      await this.userRepository.save(user);
+      const { password, ...userWithoutPassword } = user;
+      return { completed: true, updated: true, user: userWithoutPassword };
+    }
+
+    return { completed: false, updated: false };
+  }
 }

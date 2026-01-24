@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateBusinessConfigDto {
@@ -41,4 +41,9 @@ export class UpdateBusinessConfigDto {
   @IsOptional()
   @IsString()
   sitioWeb?: string;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  sucursalCentral?: number;
 }

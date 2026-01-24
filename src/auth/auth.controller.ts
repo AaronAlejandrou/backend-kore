@@ -44,4 +44,13 @@ export class AuthController {
   async completeOnboarding(@Request() req) {
     return this.authService.completeOnboarding(req.user.id);
   }
+
+  @Get('check-onboarding-status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verificar si onboarding está implícitamente completo' })
+  @ApiResponse({ status: 200, description: 'Estado del onboarding' })
+  async checkOnboardingStatus(@Request() req) {
+    return this.authService.checkAndCompleteOnboarding(req.user.id);
+  }
 }
