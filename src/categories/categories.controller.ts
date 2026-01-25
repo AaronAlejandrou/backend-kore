@@ -29,6 +29,12 @@ export class CategoriesController {
     return this.categoriesService.create(createCategoryDto, userId);
   }
 
+  @Post('find-or-create')
+  @ApiOperation({ summary: 'Buscar categoría por nombre o crearla si no existe' })
+  async findOrCreate(@Body() body: { nombre: string }, @GetUserId() userId: number) {
+    return this.categoriesService.findOrCreate(body.nombre, userId);
+  }
+
   @Get()
   @ApiQuery({ name: 'estado', required: false, enum: ['Activa', 'Inactiva'] })
   @ApiOperation({ summary: 'Obtener todas las categorías' })

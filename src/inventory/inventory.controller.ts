@@ -10,23 +10,41 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { InventoryService } from './inventory.service';
+import { InventoryService, BulkImportItemDto, ImportResult } from './inventory.service';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GetUserId } from '../auth/get-user.decorator';
+import { CategoriesService } from '../categories/categories.service';
 
 @ApiTags('inventory')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) { }
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly categoriesService: CategoriesService,
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Crear nuevo producto en inventario' })
   create(@Body() createInventoryItemDto: CreateInventoryItemDto, @GetUserId() userId: number) {
     return this.inventoryService.create(createInventoryItemDto, userId);
+  }
+
+  @Post('bulk-import')
+  @ApiOperation({ summary: 'Importar múltiples productos de forma transaccional' })
+  async bulkImport(
+    @Body() body: { items: BulkImportItemDto[] },
+    @GetUserId() userId: number,
+  ): Promise<ImportResult> {
+    const categoryResolver = async (nombre: string) => {
+      const result = await this.categoriesService.findOrCreate(nombre, userId);
+      return { id: result.category.id, created: result.created, nombre: result.category.nombre };
+    };
+
+    return this.inventoryService.bulkImport(body.items, userId, categoryResolver);
   }
 
   @Get()
