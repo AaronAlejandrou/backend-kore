@@ -5,13 +5,25 @@ config();
 
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'kore_erp',
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: process.env.NODE_ENV !== 'production', // Solo en desarrollo
+
+  // OJO: si tu DB ya tiene data importante, lo más seguro es dejar esto en false
+  synchronize: false,
+  // synchronize: process.env.NODE_ENV !== 'production',
+
   logging: process.env.NODE_ENV === 'development',
-  ssl: false,
+
+  // Supabase requiere SSL
+  ssl: { rejectUnauthorized: false },
+
+  // (Opcional pero recomendado) evita errores raros de timezone
+  extra: {
+    timezone: 'UTC',
+  },
 };
