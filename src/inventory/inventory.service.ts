@@ -101,7 +101,7 @@ export class InventoryService {
     const item = await this.inventoryRepository.findOne({
       where: { id, userId },
     });
-    
+
     if (!item) {
       throw new NotFoundException(`Producto con ID ${id} no encontrado`);
     }
@@ -117,11 +117,20 @@ export class InventoryService {
 
     // Asignar los nuevos valores
     Object.assign(item, updateInventoryItemDto);
-    
+
     if (updateInventoryItemDto.fechaIngreso) {
       item.fechaIngreso = this.parseLocalDate(updateInventoryItemDto.fechaIngreso);
     }
-    
+
+    // Actualizar estado automáticamente según el stock
+    if (updateInventoryItemDto.stock !== undefined) {
+      if (item.stock === 0) {
+        item.estado = 'Agotado';
+      } else if (item.stock > 0 && item.estado === 'Agotado') {
+        item.estado = 'Disponible';
+      }
+    }
+
     // Guardar y luego retornar con relaciones cargadas
     await this.inventoryRepository.save(item);
     return this.findOne(id, userId);
