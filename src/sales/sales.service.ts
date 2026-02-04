@@ -92,15 +92,17 @@ export class SalesService {
 
         // CUSTOM PRICE: Usar precio personalizado si se proporciona, sino usar precio del producto
         let precioBase = itemDto.precioUnitario ?? precioOriginal;
-        const subtotalOriginal = itemDto.cantidad * precioOriginal;
-        subtotalItemsOriginal += subtotalOriginal;
+
+        // subtotalBase es el subtotal ANTES de aplicar descuentos (con precio custom si existe)
+        const subtotalBase = itemDto.cantidad * precioBase;
+        subtotalItemsOriginal += subtotalBase;
 
         // Aplicar descuento del item si existe (sobre el precio base)
         let precioUnitario = precioBase;
         let descuento = 0;
         if (itemDto.descuento && itemDto.descuento > 0) {
           if (itemDto.descuentoTipo === 'porcentaje') {
-            descuento = (itemDto.cantidad * precioBase) * (itemDto.descuento / 100);
+            descuento = subtotalBase * (itemDto.descuento / 100);
             precioUnitario = precioBase * (1 - itemDto.descuento / 100);
           } else {
             descuento = itemDto.descuento;
@@ -126,7 +128,7 @@ export class SalesService {
       }
 
 
-      // Calcular descuento total
+      // Calcular descuento de items (solo descuentos reales aplicados)
       const descuentoItems = subtotalItemsOriginal - subtotalItemsFinal;
       let descuentoTotal = 0;
       if (createSaleDto.descuentoTotal && createSaleDto.descuentoTotal > 0) {
@@ -154,8 +156,10 @@ export class SalesService {
       sale.vendedor = createSaleDto.vendedor || 'Usuario';
       sale.sucursalId = branch.id;
       sale.sucursalNombre = branch.nombre;
+      // Subtotal: suma de subtotales con precios efectivos (custom o original)
       sale.subtotal = subtotalItemsOriginal;
-      sale.descuentoItems = descuentoItems;
+      // DescuentoItems: solo los descuentos reales aplicados (porcentaje o monto por item)
+      sale.descuentoItems = descuentoItems > 0 ? descuentoItems : 0;
       sale.descuentoTotal = descuentoTotal;
       sale.descuentoTotalTipo = createSaleDto.descuentoTotalTipo || 'porcentaje';
       sale.descuentoTotalMotivo = createSaleDto.descuentoTotalMotivo || null;
