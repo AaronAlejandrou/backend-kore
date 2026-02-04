@@ -11,6 +11,12 @@ export class CreateSaleItemDto {
   @Min(1)
   cantidad: number;
 
+  @ApiProperty({ example: 25.50, required: false, description: 'Precio personalizado (si es diferente al precio del producto)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  precioUnitario?: number;
+
   @ApiProperty({ example: 0, required: false })
   @IsOptional()
   @IsNumber()

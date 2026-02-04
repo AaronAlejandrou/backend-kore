@@ -89,19 +89,22 @@ export class SalesService {
 
         // Calcular subtotal del item
         const precioOriginal = product.precioVenta;
+
+        // CUSTOM PRICE: Usar precio personalizado si se proporciona, sino usar precio del producto
+        let precioBase = itemDto.precioUnitario ?? precioOriginal;
         const subtotalOriginal = itemDto.cantidad * precioOriginal;
         subtotalItemsOriginal += subtotalOriginal;
 
-        // Aplicar descuento del item si existe
-        let precioUnitario = precioOriginal;
+        // Aplicar descuento del item si existe (sobre el precio base)
+        let precioUnitario = precioBase;
         let descuento = 0;
         if (itemDto.descuento && itemDto.descuento > 0) {
           if (itemDto.descuentoTipo === 'porcentaje') {
-            descuento = subtotalOriginal * (itemDto.descuento / 100);
-            precioUnitario = precioOriginal * (1 - itemDto.descuento / 100);
+            descuento = (itemDto.cantidad * precioBase) * (itemDto.descuento / 100);
+            precioUnitario = precioBase * (1 - itemDto.descuento / 100);
           } else {
             descuento = itemDto.descuento;
-            precioUnitario = precioOriginal - descuento / itemDto.cantidad;
+            precioUnitario = precioBase - descuento / itemDto.cantidad;
           }
         }
 
