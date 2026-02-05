@@ -252,6 +252,59 @@ export class SalesService {
     await this.saleRepository.remove(sale);
   }
 
+  async cancelSale(id: number, userId: number): Promise<Sale> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Buscar la venta con items
+      const sale = await queryRunner.manager.findOne(Sale, {
+        where: { id, userId },
+        relations: ['items'],
+      });
+
+      if (!sale) {
+        throw new NotFoundException('Venta no encontrada');
+      }
+
+      if (sale.estado === 'Cancelada') {
+        throw new BadRequestException('La venta ya está cancelada');
+      }
+
+      // Reestockear productos
+      for (const item of sale.items) {
+        await queryRunner.manager.increment(
+          InventoryItem,
+          { id: item.productId },
+          'stock',
+          item.cantidad,
+        );
+
+        // Actualizar estado si tenía Agotado
+        const product = await queryRunner.manager.findOne(InventoryItem, {
+          where: { id: item.productId },
+        });
+        if (product && product.stock > 0 && product.estado === 'Agotado') {
+          product.estado = 'Disponible';
+          await queryRunner.manager.save(InventoryItem, product);
+        }
+      }
+
+      // Cambiar estado de la venta
+      sale.estado = 'Cancelada';
+      await queryRunner.manager.save(Sale, sale);
+
+      await queryRunner.commitTransaction();
+      return this.findOne(id, userId);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   private async generateSaleNumber(userId: number): Promise<string> {
     const userSales = await this.saleRepository.find({
       where: { userId },

@@ -55,4 +55,11 @@ export class SalesController {
   remove(@Param('id') id: string, @GetUserId() userId: number) {
     return this.salesService.remove(+id, userId);
   }
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Cancelar venta y reestockear productos' })
+  @ApiResponse({ status: 200, description: 'Venta cancelada exitosamente' })
+  cancel(@Param('id') id: string, @GetUserId() userId: number) {
+    return this.salesService.cancelSale(+id, userId);
+  }
 }
